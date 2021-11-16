@@ -1,4 +1,8 @@
 # imports
+from memoized_property import memoized_property
+import mlflow
+from mlflow.tracking import MlflowClient
+
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
@@ -12,6 +16,7 @@ from TaxiFareModel.data import get_data, clean_data
 
 
 class Trainer():
+
     def __init__(self, X, y):
         """
             X: pandas DataFrame
@@ -20,6 +25,8 @@ class Trainer():
         self.pipeline = None
         self.X = X
         self.y = y
+        self.MLFLOW_URI = "https://mlflow.lewagon.co/"
+        self.experiment_name = "[NL] [Ams] [hdavis44] TaxiFareModel 1.0"
 
     def set_pipeline(self):
         """defines the pipeline as a class attribute"""
@@ -57,6 +64,29 @@ class Trainer():
         y_pred = self.pipeline.predict(X_test)
         return compute_rmse(y_pred, y_test)
 
+    @memoized_property
+    def mlflow_client(self):
+        mlflow.set_tracking_uri(self.MLFLOW_URI)
+        return MlflowClient()
+
+    @memoized_property
+    def mlflow_experiment_id(self):
+        try:
+            return self.mlflow_client.create_experiment(self.experiment_name)
+        except BaseException:
+            return self.mlflow_client.get_experiment_by_name(
+                self.experiment_name).experiment_id
+
+    @memoized_property
+    def mlflow_run(self):
+        return self.mlflow_client.create_run(self.mlflow_experiment_id)
+
+    def mlflow_log_param(self, key, value):
+        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+
+    def mlflow_log_metric(self, key, value):
+        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+
 
 if __name__ == "__main__":
     # get data
@@ -78,3 +108,6 @@ if __name__ == "__main__":
 
     # evaluate
     print(t.evaluate(X_test, y_test))
+    t.mlflow_log_metric("rmse", t.evaluate(X_test, y_test))
+    t.mlflow_log_param("model", "linear")
+    t.mlflow_log_param("student_name", "Henry Davis")

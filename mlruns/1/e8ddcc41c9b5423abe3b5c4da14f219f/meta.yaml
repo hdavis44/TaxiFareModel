@@ -1,0 +1,15 @@
+artifact_uri: file:///home/henry/code/hdavis44/TaxiFareModel/mlruns/1/e8ddcc41c9b5423abe3b5c4da14f219f/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '1'
+lifecycle_stage: active
+name: ''
+run_id: e8ddcc41c9b5423abe3b5c4da14f219f
+run_uuid: e8ddcc41c9b5423abe3b5c4da14f219f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1637074875694
+status: 1
+tags: []
+user_id: unknown
