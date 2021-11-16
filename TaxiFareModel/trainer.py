@@ -2,6 +2,7 @@
 from memoized_property import memoized_property
 import mlflow
 from mlflow.tracking import MlflowClient
+import joblib
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -87,6 +88,10 @@ class Trainer():
     def mlflow_log_metric(self, key, value):
         self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
+    def save_model(self):
+        """ Save the trained model into a model.joblib file """
+        joblib.dump(self.pipeline, 'model.joblib')
+
 
 if __name__ == "__main__":
     # get data
@@ -108,6 +113,11 @@ if __name__ == "__main__":
 
     # evaluate
     print(t.evaluate(X_test, y_test))
+
+    # log with MLFlow
     t.mlflow_log_metric("rmse", t.evaluate(X_test, y_test))
     t.mlflow_log_param("model", "linear")
     t.mlflow_log_param("student_name", "Henry Davis")
+
+    # save
+    t.save_model()
