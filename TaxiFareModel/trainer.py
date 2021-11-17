@@ -3,6 +3,8 @@ from memoized_property import memoized_property
 import mlflow
 from mlflow.tracking import MlflowClient
 import joblib
+from termcolor import colored
+from google.cloud import storage
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -16,6 +18,46 @@ from TaxiFareModel.utils import compute_rmse
 from TaxiFareModel.data import get_data, clean_data
 
 
+### GCP configuration - - - - - - - - - - - - - - - - - - -
+
+# /!\ you should fill these according to your account
+
+### GCP Project - - - - - - - - - - - - - - - - - - - - - -
+
+# not required here
+
+### GCP Storage - - - - - - - - - - - - - - - - - - - - - -
+
+BUCKET_NAME = 'wagon-data-745-davis'
+
+##### Data  - - - - - - - - - - - - - - - - - - - - - - - -
+
+# train data file location
+# /!\ here you need to decide if you are going to train using the provided and uploaded data/train_1k.csv sample file
+# or if you want to use the full dataset (you need need to upload it first of course)
+BUCKET_TRAIN_DATA_PATH = 'data/train_1k.csv'
+
+##### Training  - - - - - - - - - - - - - - - - - - - - - -
+
+# not required here
+
+##### Model - - - - - - - - - - - - - - - - - - - - - - - -
+
+# model folder name (will contain the folders for all trained model versions)
+MODEL_NAME = 'taxifare'
+
+# model version folder name (where the trained model.joblib file will be stored)
+MODEL_VERSION = 'v1'
+
+### GCP AI Platform - - - - - - - - - - - - - - - - - - - -
+
+# not required here
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MLFLOW_URI = "https://mlflow.lewagon.co/"
+EXPERIMENT_NAME = "[NL] [Ams] [hdavis44] TaxiFareModel 1.0"
+
 class Trainer():
 
     def __init__(self, X, y):
@@ -26,8 +68,14 @@ class Trainer():
         self.pipeline = None
         self.X = X
         self.y = y
-        self.MLFLOW_URI = "https://mlflow.lewagon.co/"
-        self.experiment_name = "[NL] [Ams] [hdavis44] TaxiFareModel 1.0"
+        self.experiment_name = EXPERIMENT_NAME
+        self.MLFLOW_URI = MLFLOW_URI
+        self.STORAGE_LOCATION = 'models/TaxiFareModel/model.joblib'
+
+    def set_experiment_name(self, experiment_name):
+        """defines the experiment name for MLFlow"""
+        self.experiment_name = experiment_name
+        print(f"experiment name set to: {experiment_name}")
 
     def set_pipeline(self):
         """defines the pipeline as a class attribute"""
@@ -47,24 +95,52 @@ class Trainer():
             ('time', time_pipe, ['pickup_datetime'])],
                                          remainder="drop")
 
-        pipe = Pipeline([
+        self.pipeline = Pipeline([
             ('preproc', preproc_pipe),
             ('linear_model', LinearRegression())
         ])
-        return pipe
+        print("pipeline set")
 
     def run(self):
         """set and train the pipeline"""
-        self.pipeline = self.set_pipeline()
+        self.set_pipeline()
+        self.mlflow_log_param("model", "Linear")
+        print("params logged to MLFlow")
         self.pipeline.fit(self.X, self.y)
+        print("pipeline fit")
 
     def evaluate(self, X_test, y_test):
         """evaluates the pipeline on df_test and return the RMSE"""
         if self.pipeline == None:
             self.run()
         y_pred = self.pipeline.predict(X_test)
-        return compute_rmse(y_pred, y_test)
+        rmse = compute_rmse(y_pred, y_test)
+        print("pipeline evaluated")
+        print(f"rmse: {rmse}")
+        self.mlflow_log_metric("rmse", rmse)
+        print("metric logged to MLFlow")
+        return round(rmse, 2)
 
+    # gcp method
+    def upload_model_to_gcp(self):
+
+        client = storage.Client()
+
+        bucket = client.bucket(BUCKET_NAME)
+
+        blob = bucket.blob(self.STORAGE_LOCATION)
+
+        blob.upload_from_filename('model.joblib')
+
+    def save_model(self):
+        """ Save the trained model into a model.joblib file """
+        joblib.dump(self.pipeline, 'model.joblib')
+        print(colored("model.joblib saved locally", "green"))
+
+        self.upload_model_to_gcp()
+        print(f"uploaded model.joblib to gcp cloud storage under \n => {self.STORAGE_LOCATION}")
+
+    #MLFlow methods
     @memoized_property
     def mlflow_client(self):
         mlflow.set_tracking_uri(self.MLFLOW_URI)
@@ -88,36 +164,28 @@ class Trainer():
     def mlflow_log_metric(self, key, value):
         self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
-    def save_model(self):
-        """ Save the trained model into a model.joblib file """
-        joblib.dump(self.pipeline, 'model.joblib')
+
+
+
 
 
 if __name__ == "__main__":
-    # get data
-    df = get_data()
-
-    # clean data
+    # get and clean data
+    N = 1000
+    df = get_data(nrows=N)
     df = clean_data(df)
-
-    # set X and y
     X = df.drop(columns='fare_amount')
     y = df['fare_amount']
-
-    # hold out
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25)
 
-    # train
-    t = Trainer(X_train,y_train)
-    t.run()
-
-    # evaluate
-    print(t.evaluate(X_test, y_test))
+    # train and evaluate model
+    trainer = Trainer(X=X_train,y=y_train)
+    trainer.set_experiment_name(EXPERIMENT_NAME)
+    trainer.run()
+    rmse = trainer.evaluate(X_test, y_test)
 
     # log with MLFlow
-    t.mlflow_log_metric("rmse", t.evaluate(X_test, y_test))
-    t.mlflow_log_param("model", "linear")
-    t.mlflow_log_param("student_name", "Henry Davis")
+    trainer.mlflow_log_param("student_name", "Henry Davis")
 
-    # save
-    t.save_model()
+    # save and upload to gcp
+    trainer.save_model()
