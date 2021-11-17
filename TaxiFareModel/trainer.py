@@ -15,7 +15,7 @@ from sklearn.linear_model import LinearRegression
 
 from TaxiFareModel.encoders import TimeFeaturesEncoder, DistanceTransformer
 from TaxiFareModel.utils import compute_rmse
-from TaxiFareModel.data import get_data, clean_data
+from TaxiFareModel.data import get_data, clean_data, df_optimized
 
 
 ### GCP configuration - - - - - - - - - - - - - - - - - - -
@@ -58,7 +58,7 @@ MODEL_VERSION = 'v1'
 MLFLOW_URI = "https://mlflow.lewagon.co/"
 EXPERIMENT_NAME = "[NL] [Ams] [hdavis44] TaxiFareModel 1.0"
 
-class Trainer():
+class Trainer(object):
 
     def __init__(self, X, y):
         """
@@ -173,6 +173,7 @@ if __name__ == "__main__":
     # get and clean data
     N = 1000
     df = get_data(nrows=N)
+    df = df_optimized(df, verbose=True)
     df = clean_data(df)
     X = df.drop(columns='fare_amount')
     y = df['fare_amount']

@@ -2,43 +2,10 @@ from google.cloud import storage
 import pandas as pd
 
 
-### GCP configuration - - - - - - - - - - - - - - - - - - -
-
-# /!\ you should fill these according to your account
-
-### GCP Project - - - - - - - - - - - - - - - - - - - - - -
-
-# not required here
-
-### GCP Storage - - - - - - - - - - - - - - - - - - - - - -
 
 BUCKET_NAME = 'wagon-data-745-davis'
 
-##### Data  - - - - - - - - - - - - - - - - - - - - - - - -
-
-# train data file location
-# /!\ here you need to decide if you are going to train using the provided and uploaded data/train_1k.csv sample file
-# or if you want to use the full dataset (you need need to upload it first of course)
 BUCKET_TRAIN_DATA_PATH = 'data/train_1k.csv'
-
-##### Training  - - - - - - - - - - - - - - - - - - - - - -
-
-# not required here
-
-##### Model - - - - - - - - - - - - - - - - - - - - - - - -
-
-# model folder name (will contain the folders for all trained model versions)
-MODEL_NAME = 'taxifare'
-
-# model version folder name (where the trained model.joblib file will be stored)
-MODEL_VERSION = 'v1'
-
-### GCP AI Platform - - - - - - - - - - - - - - - - - - - -
-
-# not required here
-
-### - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-AWS_BUCKET_PATH = "s3://wagon-public-datasets/taxi-fare-train.csv"
 
 
 
@@ -61,6 +28,31 @@ def clean_data(df, test=False):
     df = df[df["dropoff_latitude"].between(left=40, right=42)]
     df = df[df["dropoff_longitude"].between(left=-74, right=-72.9)]
     return df
+
+
+def df_optimized(df, verbose=True, **kwargs):
+    """
+    Reduces size of dataframe by downcasting numeircal columns
+    :param df: input dataframe
+    :param verbose: print size reduction if set to True
+    :param kwargs:
+    :return: df optimized
+    """
+    in_size = df.memory_usage(index=True).sum()
+    # Optimized size here
+    for type in ["float", "integer"]:
+        l_cols = list(df.select_dtypes(include=type))
+        for col in l_cols:
+            df[col] = pd.to_numeric(df[col], downcast=type)
+            if type == "float":
+                df[col] = pd.to_numeric(df[col], downcast="integer")
+    out_size = df.memory_usage(index=True).sum()
+    ratio = (1 - round(out_size / in_size, 2)) * 100
+    GB = out_size / 1000000000
+    if verbose:
+        print("optimized size by {} % | {} GB".format(ratio, GB))
+    return df
+
 
 
 if __name__ == '__main__':
