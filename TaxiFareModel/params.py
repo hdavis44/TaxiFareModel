@@ -1,3 +1,15 @@
+### MLFLOW configuration - - - - - - - - - - - - - - - - - - -
+
+MLFLOW_URI = "https://mlflow.lewagon.co/"
+EXPERIMENT_NAME = "[country] [city] [user] model + version"
+
+### DATA & MODEL LOCATIONS  - - - - - - - - - - - - - - - - - - -
+
+PATH_TO_LOCAL_MODEL = 'model.joblib'
+
+AWS_BUCKET_TEST_PATH = "s3://wagon-public-datasets/taxi-fare-test.csv"
+
+
 ### GCP configuration - - - - - - - - - - - - - - - - - - -
 
 # /!\ you should fill these according to your account
@@ -27,11 +39,10 @@ BUCKET_TRAIN_DATA_PATH = 'data/train_1k.csv'
 MODEL_NAME = 'taxifare'
 
 # model version folder name (where the trained model.joblib file will be stored)
-MODEL_VERSION = 'v1'
+MODEL_VERSION = 'v2'
 
 ### GCP AI Platform - - - - - - - - - - - - - - - - - - - -
 
 # not required here
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-AWS_BUCKET_PATH = "s3://wagon-public-datasets/taxi-fare-train.csv"
